@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="极简 BMI 计算器：输入身高与体重，即时得出 BMI，并给出偏瘦 / 正常 / 超重的医学提示。">
+<meta name="theme-color" content="#f4f6fb" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0b1220" media="(prefers-color-scheme: dark)">
+<title>BMI 计算器 · 极简版</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f4f6fb;
+    --card: #ffffff;
+    --text: #0f172a;
+    --muted: #64748b;
+    --line: #e5e9f2;
+    --input-bg: #f8fafc;
+    --accent: #2563eb;
+    --accent-strong: #1d4ed8;
+    --soft: rgba(100, 116, 139, .08);
+    --shadow: 0 24px 60px -32px rgba(15, 23, 42, .45);
+    --radius: 24px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b1220;
+      --card: #111a2b;
+      --text: #e8eef9;
+      --muted: #94a3b8;
+      --line: #22304a;
+      --input-bg: #0e1728;
+      --accent: #3b82f6;
+      --accent-strong: #2563eb;
+      --soft: rgba(148, 163, 184, .10);
+      --shadow: 0 24px 60px -30px rgba(0, 0, 0, .8);
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  [hidden] { display: none !important; }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: grid;
+    place-items: center;
+    padding: 24px 18px calc(24px + env(safe-area-inset-bottom));
+    background:
+      radial-gradient(900px 480px at 50% -12%, rgba(37, 99, 235, .12), transparent 65%),
+      var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+      "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .card {
+    width: 100%;
+    max-width: 420px;
+    padding: 28px 24px 24px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(1.375rem, 5vw, 1.625rem);
+    font-weight: 700;
+    letter-spacing: -.02em;
+  }
+
+  .sub {
+    margin: 6px 0 0;
+    font-size: .875rem;
+    color: var(--muted);
+    text-wrap: balance;
+  }
+
+  .form {
+    display: grid;
+    gap: 14px;
+    margin-top: 24px;
+  }
+
+  .field label {
+    display: block;
+    font-size: .8125rem;
+    font-weight: 600;
+    color: var(--muted);
+  }
+
+  .unit {
+    margin-left: 6px;
+    font-size: .75rem;
+    font-weight: 500;
+    color: var(--muted);
+    opacity: .8;
+  }
+
+  .field input {
+    width: 100%;
+    margin-top: 8px;
+    padding: 14px 16px;
+    font: inherit;
+    font-size: 1rem; /* 16px：避免 iOS 聚焦时自动放大 */
+    color: var(--text);
+    background: var(--input-bg);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    outline: none;
+    transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+
+  .field input::-webkit-outer-spin-button,
+  .field input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  .field input::placeholder { color: var(--muted); opacity: .55; }
+
+  .field input:focus {
+    border-color: var(--accent);
+    background: var(--card);
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, .16);
+  }
+
+  .submit {
+    margin-top: 6px;
+    min-height: 50px;
+    padding: 14px 18px;
+    font: inherit;
+    font-weight: 600;
+    color: #fff;
+    background: var(--accent);
+    border: 0;
+    border-radius: 14px;
+    cursor: pointer;
+    transition: background .2s ease, transform .12s ease, box-shadow .2s ease;
+  }
+
+  .submit:hover { background: var(--accent-strong); }
+  .submit:active { transform: scale(.985); }
+  .submit:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, .28);
+  }
+
+  .error {
+    margin: 0;
+    min-height: 1.1em;
+    font-size: .8125rem;
+    color: #dc2626;
+  }
+  .result {
+    margin-top: 24px;
+    padding-top: 22px;
+    border-top: 1px solid var(--line);
+    text-align: center;
+    animation: rise .32s ease both;
+  }
+
+  .value {
+    margin: 0;
+    font-size: clamp(2.75rem, 13vw, 3.5rem);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -.035em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .value-unit {
+    margin-left: 6px;
+    font-size: .8125rem;
+    font-weight: 500;
+    letter-spacing: 0;
+    color: var(--muted);
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 12px 0 0;
+    padding: 6px 14px;
+    font-size: .8125rem;
+    font-weight: 600;
+    color: var(--tone);
+    background: var(--tone-bg);
+    border-radius: 999px;
+  }
+
+  .badge::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    background: currentColor;
+    border-radius: 50%;
+  }
+
+  .result[data-tone="under"]  { --tone: #2563eb; --tone-bg: rgba(37, 99, 235, .12); }
+  .result[data-tone="normal"] { --tone: #059669; --tone-bg: rgba(5, 150, 105, .12); }
+  .result[data-tone="over"]   { --tone: #d97706; --tone-bg: rgba(217, 119, 6, .15); }
+
+  @media (prefers-color-scheme: dark) {
+    .result[data-tone="under"]  { --tone: #93c5fd; --tone-bg: rgba(147, 197, 253, .14); }
+    .result[data-tone="normal"] { --tone: #6ee7b7; --tone-bg: rgba(110, 231, 183, .14); }
+    .result[data-tone="over"]   { --tone: #fcd34d; --tone-bg: rgba(252, 211, 77, .14); }
+  }
+
+  .scale {
+    position: relative;
+    height: 8px;
+    margin-top: 20px;
+  }
+
+  .scale-track {
+    position: absolute;
+    inset: 0;
+    border-radius: 999px;
+    background: linear-gradient(90deg,
+      #93c5fd 0 17.5%,
+      #6ee7b7 17.5% 45%,
+      #fde68a 45% 65%,
+      #fca5a5 65% 100%);
+    opacity: .85;
+  }
+
+  .scale-marker {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 16px;
+    height: 16px;
+    margin: -8px 0 0 -8px;
+    background: var(--card);
+    border: 3px solid var(--text);
+    border-radius: 50%;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, .3);
+    transition: left .45s cubic-bezier(.22, 1, .36, 1);
+  }
+
+  .scale-legend {
+    position: relative;
+    height: 16px;
+    margin-top: 8px;
+    font-size: .6875rem;
+    color: var(--muted);
+  }
+
+  .scale-legend span {
+    position: absolute;
+    transform: translateX(-50%);
+  }
+
+  .scale-legend span:nth-child(1) { left: 17.5%; }
+  .scale-legend span:nth-child(2) { left: 45%; }
+  .scale-legend span:nth-child(3) { left: 65%; }
+
+  .hint {
+    margin: 16px 0 0;
+    padding: 14px 16px;
+    text-align: left;
+    font-size: .875rem;
+    line-height: 1.7;
+    color: var(--text);
+    background: var(--soft);
+    border-radius: 14px;
+    text-wrap: pretty;
+  }
+
+  .note {
+    margin: 20px 0 0;
+    font-size: .6875rem;
+    line-height: 1.6;
+    color: var(--muted);
+    text-align: center;
+    text-wrap: pretty;
+  }
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: .001ms !important;
+      transition-duration: .001ms !important;
+    }
+  }
+
+  @media (max-width: 360px) {
+    .card { padding: 22px 18px 20px; border-radius: 20px; }
+    .sub { font-size: .8125rem; }
+  }
+
+</style>
+</head>
+<body>
+  <main class="card">
+    <header>
+      <h1>BMI 计算器</h1>
+      <p class="sub">输入身高与体重，了解你的身体质量指数</p>
+    </header>
+
+    <form class="form" id="bmi-form" novalidate>
+      <div class="field">
+        <label for="height">身高<span class="unit">cm</span></label>
+        <input id="height" name="height" type="number" inputmode="decimal"
+               step="0.1" min="50" max="250" placeholder="170"
+               autocomplete="off" required>
+      </div>
+
+      <div class="field">
+        <label for="weight">体重<span class="unit">kg</span></label>
+        <input id="weight" name="weight" type="number" inputmode="decimal"
+               step="0.1" min="2" max="500" placeholder="65"
+               autocomplete="off" required>
+      </div>
+
+      <button class="submit" type="submit">计算 BMI</button>
+      <p class="error" id="error" role="alert" hidden></p>
+    </form>
+
+    <section class="result" id="result" hidden aria-live="polite">
+      <p class="value"><span id="bmi-value">0.0</span><span class="value-unit">kg/m²</span></p>
+      <p class="badge" id="bmi-label"></p>
+
+      <div class="scale" aria-hidden="true">
+        <div class="scale-track"></div>
+        <div class="scale-marker" id="bmi-marker"></div>
+      </div>
+      <div class="scale-legend" aria-hidden="true">
+        <span>18.5</span><span>24</span><span>28</span>
+      </div>
+
+      <p class="hint" id="bmi-hint"></p>
+    </section>
+
+    <p class="note">
+      BMI 仅用于成人（18 岁以上）体重筛查，不能替代医学诊断。孕妇、运动员、肌肉量较高者及儿童青少年请咨询医生。
+    </p>
+
+    <noscript>
+      <p class="note">请启用 JavaScript 后使用 BMI 计算功能。</p>
+    </noscript>
+  </main>
+
+<script>
+'use strict';
+
+/* ---------- 可独立测试的纯函数 ---------- */
+
+var HEIGHT_RANGE = [50, 250];   // cm
+var WEIGHT_RANGE = [2, 500];    // kg
+
+/** BMI = 体重(kg) / 身高(m)² */
+function calcBMI(heightCm, weightKg) {
+  var m = heightCm / 100;
+  return weightKg / (m * m);
+}
+
+/**
+ * 按《中国成人超重和肥胖症预防控制指南》分级：
+ * < 18.5 偏瘦｜18.5–23.9 正常｜≥ 24 超重（≥ 28 已属肥胖范围）
+ */
+function classifyBMI(bmi) {
+  if (bmi < 18.5) {
+    return {
+      key: 'under',
+      label: '偏瘦',
+      hint: 'BMI 低于 18.5，提示体重偏低。常见原因包括能量摄入不足、消化吸收不良或消耗过多。建议规律三餐、保证优质蛋白摄入，配合适量力量训练；若体重短期明显下降，或伴随乏力、怕冷、月经紊乱，请及时就医排查甲状腺、消化系统等疾病。'
+    };
+  }
+  if (bmi < 24) {
+    return {
+      key: 'normal',
+      label: '正常',
+      hint: 'BMI 在 18.5–23.9 之间，属于中国成人正常体重范围。保持均衡饮食（蔬菜、全谷物、优质蛋白）与每周至少 150 分钟中等强度运动即可，无需刻意减重。'
+    };
+  }
+  if (bmi < 28) {
+    return {
+      key: 'over',
+      label: '超重',
+      hint: 'BMI 在 24.0–27.9 之间，属于超重范围。超重会增加高血压、2 型糖尿病、血脂异常和脂肪肝的风险。建议减少精制糖与油炸食品、避免久坐，每周累计 150–300 分钟中等强度有氧运动，并循序渐进地减重 5%–10%。'
+    };
+  }
+  return {
+    key: 'over',
+    label: '超重',
+    hint: 'BMI 达到或超过 28.0，按中国成人标准已进入肥胖范围，心血管与代谢疾病风险明显升高。建议尽早咨询医生或营养师，制定饮食与运动方案，并筛查血压、血糖、血脂与肝功能。'
+  };
+}
+/* ---------- 页面交互 ---------- */
+
+function initBMI() {
+  var form = document.getElementById('bmi-form');
+  if (!form) { return; }
+
+  var heightInput = document.getElementById('height');
+  var weightInput = document.getElementById('weight');
+  var errorEl = document.getElementById('error');
+  var resultEl = document.getElementById('result');
+  var valueEl = document.getElementById('bmi-value');
+  var labelEl = document.getElementById('bmi-label');
+  var hintEl = document.getElementById('bmi-hint');
+  var markerEl = document.getElementById('bmi-marker');
+
+  function showError(message, input) {
+    errorEl.textContent = message;
+    errorEl.hidden = false;
+    resultEl.hidden = true;
+    if (input) { input.focus(); }
+  }
+
+  /** 读取并校验输入，返回 { value } 或 { error } */
+  function readValue(input, range, name) {
+    var raw = input.value.trim();
+    if (raw === '') {
+      return { error: '请输入' + name };
+    }
+    var value = Number(raw);
+    if (!isFinite(value)) {
+      return { error: name + '必须是数字' };
+    }
+    if (value < range[0] || value > range[1]) {
+      return { error: name + '请填写 ' + range[0] + '–' + range[1] + ' 之间的数值' };
+    }
+    return { value: value };
+  }
+
+  form.addEventListener('submit', function (event) {
+    event.preventDefault();
+
+    var height = readValue(heightInput, HEIGHT_RANGE, '身高（cm）');
+    if (height.error) {
+      showError(height.error, heightInput);
+      return;
+    }
+
+    var weight = readValue(weightInput, WEIGHT_RANGE, '体重（kg）');
+    if (weight.error) {
+      showError(weight.error, weightInput);
+      return;
+    }
+
+    var bmi = calcBMI(height.value, weight.value);
+    var info = classifyBMI(bmi);
+
+    errorEl.textContent = '';
+    errorEl.hidden = true;
+    resultEl.hidden = false;
+    resultEl.dataset.tone = info.key;
+
+    valueEl.textContent = bmi.toFixed(1);
+    labelEl.textContent = info.label;
+    hintEl.textContent = info.hint;
+
+    // 刻度尺可视范围 15–35，超出范围时贴边显示
+    var ratio = Math.min(Math.max((bmi - 15) / 20, 0), 1);
+    markerEl.style.left = (ratio * 100).toFixed(2) + '%';
+  });
+}
+
+if (typeof document !== 'undefined') {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initBMI);
+  } else {
+    initBMI();
+  }
+}
+</script>
+</body>
+</html>
